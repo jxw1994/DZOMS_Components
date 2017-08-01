@@ -1,0 +1,189 @@
+componentDidMount(){
+      var self=this;
+      var key = window.location.pathname.substring(window.location.pathname.lastIndexOf("/")+1);
+      var recResult=[];   
+      //console.log(key);
+      $.ajax({
+          type: "GET",
+          url: "/DZOMS/ky/runtime/tasks/"+key,
+          dataType: 'json',
+          contentType : 'application/json',
+          success: function(result){
+            console.log(result);
+            recResult.splice(0,0,result);             
+            window.processInstanceId = result.processInstanceId;
+            $.ajax({
+                type: "GET",
+                url: "/DZOMS/ky/history/historic-process-instances/"+ window.processInstanceId,
+                dataType: 'json',
+                contentType : 'application/json',
+                success: function(result){                    
+                    var processHisInfo=[];
+                    processHisInfo.push(result);
+                    console.log(processHisInfo);
+                    self.setState({                          
+                        processHisInfo:processHisInfo,                         
+                    });
+                },
+                error: function(result){
+                    alert("操作失败");
+                }
+            });
+            $.ajax({
+                type: "GET",
+                url: "/DZOMS/ky/history/historic-variable-instances?processInstanceId="+window.processInstanceId,
+                dataType: 'json',
+                contentType : 'application/json',
+                success: function(result){
+                    if(result.data){    
+                        var expNull = null;
+                        var taskDataList = {};
+                        var startFormData = [];
+                        for(var i=0;i <result.data.length; i++){
+                          if(result.data[i].taskId === expNull){
+                            startFormData.push(result.data[i]);
+                          }
+                        }
+                        self.setState({
+                            // recResult:taskArray,
+                            processVarInfo:startFormData
+                        }); 
+                    }
+                },
+                error: function(result){
+                    alert("操作失败");
+                }
+            });
+            $.ajax({
+                type: "GET",
+                url: "/DZOMS/ky/history/historic-task-instances?processInstanceId="+window.processInstanceId,
+                dataType: 'json',
+                contentType : 'application/json',
+                success: function(result){
+                    if(result.data){    
+                      var expNull = null;
+                      if(self.props.history){
+                        self.setState({
+                            recResult:result.data
+                        });
+                      }else{
+                        var taskArray = [];
+                        if(result.data.length > 1){
+                          taskArray = result.data.slice(0,result.data.length-1)
+                        }
+                        var taskDataList = {};
+                        self.getRuntimeData(key, taskDataList).then(function(data){
+                          taskArray.push(data);
+                          self.setState({
+                              recResult:taskArray,
+                          });
+                        });
+                      }
+                    }
+                },
+                error: function(result){
+                    alert("操作失败");
+                }
+            });
+          },
+          error: function(result){
+              alert("操作失败");
+          }
+      });
+  }
+
+
+
+
+componentDidMount(){
+      var self=this;
+      var key = window.location.pathname.substring(window.location.pathname.lastIndexOf("/")+1);
+      var recResult=[];   
+      //console.log(self.props.getTasksUrl)
+      $.ajax({
+          type: "GET",
+          url: self.props.getTasksUrl+key,
+          dataType: 'json',
+          contentType : 'application/json',
+          success: function(result){
+            // console.log(result);
+            recResult.splice(0,0,result);             
+            window.processInstanceId = result.processInstanceId;
+            //console.log(self.props.hisProcessUrl)
+            //console.log(self.props.hisVariable)
+            $.ajax({
+                type: "GET",
+                url: self.props.hisProcessUrl+ window.processInstanceId,
+                dataType: 'json',
+                contentType : 'application/json',
+                success: function(result){                    
+                    var processHisInfo=[];
+                    processHisInfo.push(result);
+                    //console.log(processHisInfo);
+                    self.setState({                          
+                        processHisInfo:processHisInfo,                         
+                    });
+                },
+                error: function(result){
+                    alert("操作失败");
+                }
+            });
+            $.ajax({
+                type: "GET",
+                url: self.props.hisVariable+window.processInstanceId,
+                dataType: 'json',
+                contentType : 'application/json',
+                success: function(result){
+                    if(result.data){   
+                        //console.log(result); 
+                        var expNull = null;
+                        var taskDataList = {};
+                        var startFormData = [];
+                        for(var i=0;i <result.data.length; i++){
+                          if(result.data[i].taskId === expNull){
+                            startFormData.push(result.data[i]);
+                          }
+                          else{
+                            if(taskDataList[result.data[i].taskId])
+                              taskDataList[result.data[i].taskId]['variables'].push(result.data[i].variable);
+                            else{
+                              taskDataList[result.data[i].taskId] = {};
+                              taskDataList[result.data[i].taskId]['variables'] = [];
+                              taskDataList[result.data[i].taskId]['variables'].push(result.data[i].variable);
+                            }
+                          }
+                        }
+                        var promises = [];
+                        for(var id in taskDataList){
+                          promises.push(self.getTaskData(id, taskDataList));
+                        }
+                        promises.push(self.getRuntimeData(key, taskDataList));
+
+                        Promise.all(promises).then(function (posts) {
+                          var taskIdSortedList = Object.keys(taskDataList).sort();
+                          var taskArray = [];
+                          taskIdSortedList.map(function(id){
+                            taskArray.push(taskDataList[id]);
+                          });
+
+                          self.setState({
+                              processImgData:result.data,
+                              recResult:taskArray,
+                              processVarInfo:startFormData
+                          }); 
+                          // ...
+                        }).catch(function(reason){
+                          console.log(reason);
+                        });
+                    }
+                },
+                error: function(result){
+                    alert("操作失败");
+                }
+            }); 
+          },
+          error: function(result){
+              alert("操作失败");
+          }
+      });
+  }
